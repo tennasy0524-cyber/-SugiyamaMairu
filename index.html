@@ -29,10 +29,12 @@
         }
         .list-item:hover { background-color: rgba(163, 42, 42, 0.2); }
         
-        /* 統一所有欄位的字體大小 */
+        /* 統一所有欄位的字體大小與樣式 */
         .column-text {
             font-size: 1.1rem; 
-            line-height: 1.5;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
         }
 
         ::-webkit-scrollbar { width: 6px; }
@@ -52,7 +54,7 @@
                 class="bg-transparent w-full p-3 rounded-lg outline-none text-red-100 text-lg placeholder:text-red-900/50">
         </div>
 
-        <div class="table-header grid grid-cols-12 p-4 font-bold rounded-t-lg">
+        <div class="table-header grid grid-cols-12 p-4 font-bold rounded-t-lg text-base">
             <div class="col-span-3">歌手</div>
             <div class="col-span-4">歌名</div>
             <div class="col-span-3 text-center">語言</div>
@@ -95,44 +97,7 @@
             } catch (e) {
                 container.innerHTML = `<div class="py-20 text-center text-red-500 font-bold px-4">
                     <p class="text-xl mb-2">⚠️ 讀取失敗</p>
-                    <p class="text-sm">原因：${e.message}。請確認已上傳至 GitHub 並使用 HTTPS 網址開啟。</p>
+                    <p class="text-sm">原因：${e.message}。請確認已部署至 GitHub 並使用網址開啟。</p>
                 </div>`;
             }
         }
-
-        function renderSongs(songs) {
-            const container = document.getElementById('songList');
-            container.innerHTML = '';
-            
-            if (songs.length === 0) {
-                container.innerHTML = `<div class="py-20 text-center text-red-900 italic font-bold">找不到相關歌曲</div>`;
-                return;
-            }
-
-            songs.forEach(item => {
-                const row = document.createElement('div');
-                row.className = "list-item grid grid-cols-12 p-4 items-center";
-                row.innerHTML = `
-                    <div class="col-span-3 column-text text-white font-bold truncate pr-2">${item.artist || '-'}</div>
-                    <div class="col-span-4 column-text text-red-100 truncate pr-2">${item.song || '-'}</div>
-                    <div class="col-span-3 column-text text-center text-red-200/80">${item.lang || '-'}</div>
-                    <div class="col-span-2 column-text text-right text-red-400/60 italic">${item.cate || ''}</div>
-                `;
-                container.appendChild(row);
-            });
-        }
-
-        document.getElementById('searchInput').addEventListener('input', (e) => {
-            const kw = e.target.value.toLowerCase().trim();
-            const filtered = allSongs.filter(s => 
-                String(s.song).toLowerCase().includes(kw) || 
-                String(s.artist).toLowerCase().includes(kw) ||
-                String(s.lang).toLowerCase().includes(kw)
-            );
-            renderSongs(filtered);
-        });
-
-        fetchSongs();
-    </script>
-</body>
-</html>
