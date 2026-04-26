@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>杉山参 SugiyamaMairu 點歌系統</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { 
+            background: linear-gradient(135deg, #2d0a0a 0%, #1a0505 100%); 
+            color: #fce7e7; 
+            font-family: "Microsoft JhengHei", sans-serif;
+            min-height: 100vh;
+        }
+        .search-container { 
+            background-color: rgba(74, 13, 13, 0.4); 
+            border: 1px solid #5e1111; 
+            backdrop-filter: blur(10px); 
+        }
+        .table-header { 
+            background-color: #721c1c; 
+            color: #ffffff; 
+            border-bottom: 2px solid #a32a2a; 
+        }
+        .list-item { 
+            background-color: rgba(94, 17, 17, 0.15); 
+            border-bottom: 1px solid #3d0c0c; 
+            transition: 0.2s; 
+        }
+        .list-item:hover { background-color: rgba(163, 42, 42, 0.2); }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #721c1c; border-radius: 10px; }
+    </style>
+</head>
+<body class="p-4 md:p-10">
+    <div class="max-w-6xl mx-auto">
+        <header class="mb-8 text-center">
+            <h1 class="text-4xl font-bold text-red-100 tracking-widest mb-2">杉山参 SugiyamaMairu</h1>
+            <p class="text-red-400/60 text-sm mb-4">專屬點歌庫系統</p>
+            <div class="h-1 w-20 bg-red-600 mx-auto rounded-full"></div>
+        </header>
+
+        <div class="relative mb-6 search-container p-4 rounded-xl shadow-lg">
+            <input type="text" id="searchInput" placeholder="🔍 搜尋歌手、歌名、語言或類別..." 
+                class="bg-transparent w-full p-3 rounded-lg outline-none text-red-100 text-lg placeholder:text-red-900/50">
+        </div>
+
+        <div class="table-header grid grid-cols-12 p-4 font-bold rounded-t-lg text-sm md:text-base">
+            <div class="col-span-5">歌手</div>
+            <div class="col-span-4">歌名</div>
+            <div class="col-span-2 text-center">語言</div>
+            <div class="col-span-1 text-right">類別</div>
+        </div>
+
+        <div id="songList" class="flex flex-col rounded-b-lg overflow-hidden shadow-2xl bg-black/20 min-h-[300px]">
+            <div id="loadingStatus" class="text-center py-20 text-red-900 animate-pulse text-lg">正在讀取杉山参的專屬歌庫...</div>
+        </div>
+    </div>
+
+    <script>
+        let allSongs = [];
+        const sheetId = '1h402uFU7BIfq1X4ntEvF2utUymAvGsTUiWlaV4afqaA'; //
+        const fullUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`;
+
+        async function fetchSongs() {
+            const container = document.getElementById('songList');
+            try {
+                const response = await fetch(fullUrl, { cache: "no-store" });
+                if (!response.ok) throw new Error('連線異常');
+                
+                const text = await response.text();
+                const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\);/);
+                if (!match) throw new Error('解析錯誤');
+                
+                const data = JSON.parse(match[1]);
+                const rows = data.table.rows;
+                
+                allSongs = rows.map(row => {
+                    const getVal = (idx) => (row.c && row.c[idx] && row.c[idx].v !== null) ? row.c[idx].v : "";
+                    return {
+                        artist: getVal(0), // A: 歌手
+                        song: getVal(1),   // B: 歌名
+                        lang: getVal(2),   // C: 語言
+                        cate: getVal(3)    // D: 類別
+                    };
+                });
+
+                if (allSongs.length > 0) allSongs.shift(); // 移除首列標題
+                renderSongs(allSongs);
+
+            } catch (e) {
+                console.error(e);
+                container.innerHTML = `<div class="py-20 text-center text-red-500 font-bold px-4">
+                    <p class="text-xl mb-2">⚠️ 讀取失敗</p>
+                    <p class="text-sm opacity-80">原因：網路受阻或攔截。請確保試算表已開啟權限並上傳至 Netlify。</p>
+                </div>`;
+            }
+        }
+
+        function renderSongs(songs) {
+            const container = document.getElementById('songList');
+            container.innerHTML = '';
+            
+            if (songs.length === 0) {
+                container.innerHTML = `<div class="py-20 text-center text-red-900 italic">找不到符合的歌曲</div>`;
+                return;
+            }
+
+            const fragment = document.createDocumentFragment();
+            songs.forEach(item => {
+                const row = document.createElement('div');
+                row.className = "list-item grid grid-cols-12 p-4 items-center";
+                row.innerHTML = `
+                    <div class="col-span-5 text-base md:text-lg text-white font-medium truncate pr-2">${item.artist || '-'}</div>
+                    <div class="col-span-4 text-sm md:text-base text-red-200/80 truncate pr-2">${item.song || '-'}</div>
+                    <div class="col-span-2 text-center text-red-400/70 text-sm">${item.lang || '-'}</div>
+                    <div class="col-span-1 text-right text-red-900/60 text-xs italic">${item.cate || ''}</div>
+                `;
+                fragment.appendChild(row);
+            });
+            container.appendChild(fragment);
+        }
+
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            const kw = e.target.value.toLowerCase().trim();
+            const filtered = allSongs.filter(s => 
+                String(s.song).toLowerCase().includes(kw) || 
+                String(s.artist).toLowerCase().includes(kw) ||
+                String(s.lang).toLowerCase().includes(kw)
+            );
+            renderSongs(filtered);
+        });
+
+        fetchSongs();
+    </script>
+</body>
+</html>
