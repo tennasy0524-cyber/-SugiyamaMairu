@@ -101,3 +101,41 @@
                 </div>`;
             }
         }
+
+        function renderSongs(songs) {
+            const container = document.getElementById('songList');
+            container.innerHTML = '';
+            
+            if (songs.length === 0) {
+                container.innerHTML = `<div class="py-20 text-center text-red-900 italic font-bold">找不到相關歌曲</div>`;
+                return;
+            }
+
+            songs.forEach(item => {
+                const row = document.createElement('div');
+                // 每個欄位獨立佔據 grid 空間
+                row.className = "list-item grid grid-cols-12 p-4 items-center";
+                row.innerHTML = `
+                    <div class="col-span-3 column-text text-white truncate pr-2">${item.artist || '-'}</div>
+                    <div class="col-span-4 column-text text-red-100 truncate pr-2">${item.song || '-'}</div>
+                    <div class="col-span-3 column-text justify-center text-red-200/80">${item.lang || '-'}</div>
+                    <div class="col-span-2 column-text justify-end text-red-400/60 italic">${item.cate || ''}</div>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            const kw = e.target.value.toLowerCase().trim();
+            const filtered = allSongs.filter(s => 
+                String(s.song).toLowerCase().includes(kw) || 
+                String(s.artist).toLowerCase().includes(kw) ||
+                String(s.lang).toLowerCase().includes(kw)
+            );
+            renderSongs(filtered);
+        });
+
+        fetchSongs();
+    </script>
+</body>
+</html>
