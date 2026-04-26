@@ -29,9 +29,9 @@
         }
         .list-item:hover { background-color: rgba(163, 42, 42, 0.2); }
         
-        /* 統一欄位字體大小 */
+        /* 統一所有欄位的字體大小 */
         .column-text {
-            font-size: 1.1rem; /* 您可以調整這個數值來改變大小 */
+            font-size: 1.1rem; 
             line-height: 1.5;
         }
 
@@ -73,6 +73,7 @@
             const container = document.getElementById('songList');
             try {
                 const response = await fetch(fullUrl, { cache: "no-store" });
+                if (!response.ok) throw new Error('連線失敗');
                 const text = await response.text();
                 const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\);/);
                 const data = JSON.parse(match[1]);
@@ -92,7 +93,10 @@
                 renderSongs(allSongs);
 
             } catch (e) {
-                container.innerHTML = `<div class="py-20 text-center text-red-500 font-bold">讀取失敗，請確認網路連線。</div>`;
+                container.innerHTML = `<div class="py-20 text-center text-red-500 font-bold px-4">
+                    <p class="text-xl mb-2">⚠️ 讀取失敗</p>
+                    <p class="text-sm">原因：${e.message}。請確認已上傳至 GitHub 並使用 HTTPS 網址開啟。</p>
+                </div>`;
             }
         }
 
@@ -123,8 +127,7 @@
             const filtered = allSongs.filter(s => 
                 String(s.song).toLowerCase().includes(kw) || 
                 String(s.artist).toLowerCase().includes(kw) ||
-                String(s.lang).toLowerCase().includes(kw) ||
-                String(s.cate).toLowerCase().includes(kw)
+                String(s.lang).toLowerCase().includes(kw)
             );
             renderSongs(filtered);
         });
