@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>杉山参 SugiyamaMairu 點歌系統</title>
+    
     <script src="https://cdn.tailwindcss.com"></script>
+
     <style>
         body { 
             background: linear-gradient(135deg, #2d0a0a 0%, #1a0505 100%); 
@@ -27,8 +29,12 @@
             border-bottom: 1px solid #3d0c0c; 
             transition: 0.2s; 
         }
-        .list-item:hover { background-color: rgba(163, 42, 42, 0.2); }
+        .list-item:hover { 
+            background-color: rgba(163, 42, 42, 0.2); 
+        }
+        /* 美化捲軸 */
         ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #1a0505; }
         ::-webkit-scrollbar-thumb { background: #721c1c; border-radius: 10px; }
     </style>
 </head>
@@ -41,7 +47,7 @@
         </header>
 
         <div class="relative mb-6 search-container p-4 rounded-xl shadow-lg">
-            <input type="text" id="searchInput" placeholder="🔍 搜尋歌手、歌名、語言或類別..." 
+            <input type="text" id="searchInput" placeholder="🔍 輸入關鍵字搜尋歌手、歌名、語言或類別..." 
                 class="bg-transparent w-full p-3 rounded-lg outline-none text-red-100 text-lg placeholder:text-red-900/50">
         </div>
 
@@ -53,47 +59,57 @@
         </div>
 
         <div id="songList" class="flex flex-col rounded-b-lg overflow-hidden shadow-2xl bg-black/20 min-h-[300px]">
-            <div id="loadingStatus" class="text-center py-20 text-red-900 animate-pulse text-lg">正在讀取杉山参的專屬歌庫...</div>
+            <div id="loadingStatus" class="text-center py-20 text-red-900 animate-pulse text-lg">
+                正在讀取杉山参的專屬歌庫...
+            </div>
         </div>
     </div>
 
     <script>
         let allSongs = [];
-        const sheetId = '1h402uFU7BIfq1X4ntEvF2utUymAvGsTUiWlaV4afqaA'; //
+        // 您的 Google 試算表 ID
+        const sheetId = '1h402uFU7BIfq1X4ntEvF2utUymAvGsTUiWlaV4afqaA';
         const fullUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`;
 
         async function fetchSongs() {
             const container = document.getElementById('songList');
             try {
                 const response = await fetch(fullUrl, { cache: "no-store" });
-                if (!response.ok) throw new Error('連線異常');
+                if (!response.ok) throw new Error('連線異常 (HTTP ' + response.status + ')');
                 
                 const text = await response.text();
+                
+                // 解析 Google 傳回的 JSONP 格式內容
                 const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\);/);
-                if (!match) throw new Error('解析錯誤');
+                if (!match) throw new Error('資料格式解析失敗');
                 
                 const data = JSON.parse(match[1]);
                 const rows = data.table.rows;
                 
+                // 將資料轉換為易於處理的物件陣列 (對應 A:歌手, B:歌名, C:語言, D:類別)
                 allSongs = rows.map(row => {
                     const getVal = (idx) => (row.c && row.c[idx] && row.c[idx].v !== null) ? row.c[idx].v : "";
                     return {
-                        artist: getVal(0), // A: 歌手
-                        song: getVal(1),   // B: 歌名
-                        lang: getVal(2),   // C: 語言
-                        cate: getVal(3)    // D: 類別
+                        artist: getVal(0),
+                        song: getVal(1),
+                        lang: getVal(2),
+                        cate: getVal(3)
                     };
                 });
 
-                if (allSongs.length > 0) allSongs.shift(); // 移除首列標題
+                // 移除試算表的第一列標題
+                if (allSongs.length > 0) allSongs.shift();
+
                 renderSongs(allSongs);
 
             } catch (e) {
-                console.error(e);
-                container.innerHTML = `<div class="py-20 text-center text-red-500 font-bold px-4">
-                    <p class="text-xl mb-2">⚠️ 讀取失敗</p>
-                    <p class="text-sm opacity-80">原因：網路受阻或攔截。請確保試算表已開啟權限並上傳至 Netlify。</p>
-                </div>`;
+                console.error("Error Detail:", e);
+                container.innerHTML = `
+                    <div class="py-20 text-center text-red-500 font-bold px-4">
+                        <p class="text-xl mb-2">⚠️ 讀取失敗</p>
+                        <p class="text-sm opacity-80">原因：${e.message === 'Failed to fetch' ? '網路攔截或安全性限制' : e.message}</p>
+                        <button onclick="location.reload()" class="mt-4 bg-red-900/50 px-4 py-2 rounded text-white text-xs">重試</button>
+                    </div>`;
             }
         }
 
@@ -121,16 +137,19 @@
             container.appendChild(fragment);
         }
 
+        // 修正您之前截圖中斷掉的搜尋監聽邏輯
         document.getElementById('searchInput').addEventListener('input', (e) => {
             const kw = e.target.value.toLowerCase().trim();
             const filtered = allSongs.filter(s => 
                 String(s.song).toLowerCase().includes(kw) || 
                 String(s.artist).toLowerCase().includes(kw) ||
-                String(s.lang).toLowerCase().includes(kw)
+                String(s.lang).toLowerCase().includes(kw) ||
+                String(s.cate).toLowerCase().includes(kw)
             );
             renderSongs(filtered);
         });
 
+        // 啟動資料抓取
         fetchSongs();
     </script>
 </body>
