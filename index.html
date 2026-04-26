@@ -11,7 +11,6 @@
             color: #fce7e7; 
             font-family: "Microsoft JhengHei", sans-serif;
             min-height: 100vh;
-            margin: 0;
         }
         .search-container { 
             background-color: rgba(74, 13, 13, 0.4); 
@@ -29,16 +28,19 @@
         .list-item { 
             background-color: rgba(94, 17, 17, 0.15); 
             border-bottom: 1px solid #3d0c0c; 
+            transition: 0.2s;
         }
         .list-item:hover { background-color: rgba(163, 42, 42, 0.3); }
         
-        /* 統一字體與強制單行 */
-        .column-text {
+        /* 統一字體與對齊樣式 */
+        .col-cell {
             font-size: 1.05rem; 
-            padding: 1rem 0.5rem;
-            white-space: nowrap;
+            padding: 0.85rem 0.5rem;
             overflow: hidden;
             text-overflow: ellipsis;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
         }
     </style>
 </head>
@@ -46,45 +48,42 @@
     <div class="max-w-6xl mx-auto">
         <header class="mb-6 text-center">
             <h1 class="text-3xl md:text-4xl font-bold text-red-100 tracking-widest mb-2">杉山参 SugiyamaMairu</h1>
-            <p class="text-red-400/60 text-xs md:text-sm mb-2">專屬點歌庫系統</p>
             <div class="h-1 w-16 bg-red-600 mx-auto rounded-full"></div>
         </header>
 
         <div class="search-container p-3 mb-6 rounded-xl shadow-lg">
-            <input type="text" id="searchInput" placeholder="🔍 快速搜尋歌手、歌名..." 
+            <input type="text" id="searchInput" placeholder="🔍 搜尋歌手、歌名..." 
                 class="bg-transparent w-full p-2 outline-none text-red-100 text-lg placeholder:text-red-900/40">
         </div>
 
         <div class="table-header grid grid-cols-12 px-4 py-3 rounded-t-lg font-bold text-sm md:text-base">
             <div class="col-span-3">歌手</div>
             <div class="col-span-4">歌名</div>
-            <div class="col-span-3 text-center">語言</div>
-            <div class="col-span-2 text-right">類別</div>
+            <div class="col-span-3 text-center block">語言</div>
+            <div class="col-span-2 text-right block">類別</div>
         </div>
 
         <div id="songList" class="flex flex-col rounded-b-lg overflow-hidden bg-black/20 shadow-2xl min-h-[400px]">
-            <div id="loadingStatus" class="text-center py-24 text-red-900 animate-pulse text-lg">正在讀取歌庫...</div>
+            <div id="loadingStatus" class="text-center py-24 text-red-900 animate-pulse text-lg">正在嘗試連線歌庫...</div>
         </div>
     </div>
 
     <script>
         const sheetId = '1h402uFU7BIfq1X4ntEvF2utUymAvGsTUiWlaV4afqaA';
-        // 使用更快速的 JSONP 請求方式
         const fullUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`;
         let allSongs = [];
 
         async function fetchSongs() {
             const container = document.getElementById('songList');
             try {
-                // 優化：優先從快取獲取，減少等待感
+                // 使用 fetch 抓取並處理 Google 試算表 JSON 格式
                 const response = await fetch(fullUrl);
-                if (!response.ok) throw new Error();
+                if (!response.ok) throw new Error("連線失敗");
                 
                 const text = await response.text();
-                const jsonString = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\);/)[1];
+                const jsonString = text.substring(text.indexOf("(") + 1, text.lastIndexOf(")"));
                 const data = JSON.parse(jsonString);
                 
-                // 快速處理資料
                 allSongs = data.table.rows.map(row => ({
                     artist: row.c[0]?.v || "-",
                     song: row.c[1]?.v || "-",
@@ -92,25 +91,50 @@
                     cate: row.c[3]?.v || ""
                 }));
 
-                if (allSongs.length > 0) allSongs.shift(); // 移除標題
+                if (allSongs.length > 0) allSongs.shift(); // 移除首列標題
                 renderSongs(allSongs);
             } catch (e) {
-                container.innerHTML = `<div class="py-20 text-center text-red-500 font-bold">讀取失敗，請確認網路連線或重新整理。</div>`;
+                console.error(e);
+                container.innerHTML = `<div class="py-20 text-center text-red-500 font-bold px-4">
+                    <p class="text-xl mb-2">⚠️ 讀取失敗</p>
+                    <p class="text-sm">請重新整理頁面，或檢查試算表權限。</p>
+                </div>`;
             }
         }
 
         function renderSongs(songs) {
             const container = document.getElementById('songList');
             if (songs.length === 0) {
-                container.innerHTML = `<div class="py-20 text-center text-red-900 italic">無匹配歌曲</div>`;
+                container.innerHTML = `<div class="py-20 text-center text-red-900 italic font-bold">找不到相符的歌曲</div>`;
                 return;
             }
 
-            // 使用 DocumentFragment 加速渲染
             const fragment = document.createDocumentFragment();
             songs.forEach(item => {
                 const row = document.createElement('div');
                 row.className = "list-item grid grid-cols-12 px-4 items-center";
                 row.innerHTML = `
-                    <div class="col-span-3 column-text text-white font-medium">${item.artist}</div>
-                    <div class="col-span-4 column-text text-red-100/90">${
+                    <div class="col-span-3 col-cell text-white font-bold">${item.artist}</div>
+                    <div class="col-span-4 col-cell text-red-100/90">${item.song}</div>
+                    <div class="col-span-3 col-cell justify-center text-red-200/80">${item.lang}</div>
+                    <div class="col-span-2 col-cell justify-end text-red-900/50 italic text-sm">${item.cate}</div>
+                `;
+                fragment.appendChild(row);
+            });
+            container.innerHTML = '';
+            container.appendChild(fragment);
+        }
+
+        // 搜尋功能
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            const kw = e.target.value.toLowerCase().trim();
+            const filtered = allSongs.filter(s => 
+                s.artist.toLowerCase().includes(kw) || s.song.toLowerCase().includes(kw)
+            );
+            renderSongs(filtered);
+        });
+
+        fetchSongs();
+    </script>
+</body>
+</html>
