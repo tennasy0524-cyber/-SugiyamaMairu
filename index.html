@@ -32,10 +32,10 @@
         }
         .list-item:hover { background-color: rgba(163, 42, 42, 0.3); }
         
-        /* 統一字體與對齊樣式 */
+        /* 統一字體大小與對齊 */
         .col-cell {
-            font-size: 1.05rem; 
-            padding: 0.85rem 0.5rem;
+            font-size: 1.1rem; 
+            padding: 1rem 0.5rem;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -52,7 +52,7 @@
         </header>
 
         <div class="search-container p-3 mb-6 rounded-xl shadow-lg">
-            <input type="text" id="searchInput" placeholder="🔍 搜尋歌手、歌名..." 
+            <input type="text" id="searchInput" placeholder="🔍 搜尋歌手、歌名、語言..." 
                 class="bg-transparent w-full p-2 outline-none text-red-100 text-lg placeholder:text-red-900/40">
         </div>
 
@@ -64,7 +64,7 @@
         </div>
 
         <div id="songList" class="flex flex-col rounded-b-lg overflow-hidden bg-black/20 shadow-2xl min-h-[400px]">
-            <div id="loadingStatus" class="text-center py-24 text-red-900 animate-pulse text-lg">正在嘗試連線歌庫...</div>
+            <div id="loadingStatus" class="text-center py-24 text-red-900 animate-pulse text-lg">讀取連線中...</div>
         </div>
     </div>
 
@@ -76,36 +76,35 @@
         async function fetchSongs() {
             const container = document.getElementById('songList');
             try {
-                // 使用 fetch 抓取並處理 Google 試算表 JSON 格式
+                // 採用更強健的資料獲取方式
                 const response = await fetch(fullUrl);
-                if (!response.ok) throw new Error("連線失敗");
-                
                 const text = await response.text();
-                const jsonString = text.substring(text.indexOf("(") + 1, text.lastIndexOf(")"));
-                const data = JSON.parse(jsonString);
                 
-                allSongs = data.table.rows.map(row => ({
+                // 解決讀取不出來的核心：更精準的 JSON 截取
+                const start = text.indexOf('{');
+                const end = text.lastIndexOf('}') + 1;
+                const json = JSON.parse(text.substring(start, end));
+                
+                allSongs = json.table.rows.map(row => ({
                     artist: row.c[0]?.v || "-",
                     song: row.c[1]?.v || "-",
                     lang: row.c[2]?.v || "-",
                     cate: row.c[3]?.v || ""
                 }));
 
-                if (allSongs.length > 0) allSongs.shift(); // 移除首列標題
+                // 移除標題列
+                if (allSongs.length > 0) allSongs.shift();
                 renderSongs(allSongs);
             } catch (e) {
-                console.error(e);
-                container.innerHTML = `<div class="py-20 text-center text-red-500 font-bold px-4">
-                    <p class="text-xl mb-2">⚠️ 讀取失敗</p>
-                    <p class="text-sm">請重新整理頁面，或檢查試算表權限。</p>
-                </div>`;
+                console.error("Fetch error:", e);
+                container.innerHTML = `<div class="py-20 text-center text-red-500 font-bold px-4">⚠️ 資料載入失敗，請檢查網路連線。</div>`;
             }
         }
 
         function renderSongs(songs) {
             const container = document.getElementById('songList');
             if (songs.length === 0) {
-                container.innerHTML = `<div class="py-20 text-center text-red-900 italic font-bold">找不到相符的歌曲</div>`;
+                container.innerHTML = `<div class="py-20 text-center text-red-900 italic font-bold">目前無符合歌曲</div>`;
                 return;
             }
 
@@ -115,26 +114,8 @@
                 row.className = "list-item grid grid-cols-12 px-4 items-center";
                 row.innerHTML = `
                     <div class="col-span-3 col-cell text-white font-bold">${item.artist}</div>
-                    <div class="col-span-4 col-cell text-red-100/90">${item.song}</div>
+                    <div class="col-span-4 col-cell text-red-100">${item.song}</div>
                     <div class="col-span-3 col-cell justify-center text-red-200/80">${item.lang}</div>
                     <div class="col-span-2 col-cell justify-end text-red-900/50 italic text-sm">${item.cate}</div>
                 `;
-                fragment.appendChild(row);
-            });
-            container.innerHTML = '';
-            container.appendChild(fragment);
-        }
-
-        // 搜尋功能
-        document.getElementById('searchInput').addEventListener('input', (e) => {
-            const kw = e.target.value.toLowerCase().trim();
-            const filtered = allSongs.filter(s => 
-                s.artist.toLowerCase().includes(kw) || s.song.toLowerCase().includes(kw)
-            );
-            renderSongs(filtered);
-        });
-
-        fetchSongs();
-    </script>
-</body>
-</html>
+                fragment.appendChild(
